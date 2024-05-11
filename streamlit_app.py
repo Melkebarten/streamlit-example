@@ -1,40 +1,50 @@
-import altair as alt
-import numpy as np
-import pandas as pd
 import streamlit as st
+import plotly.graph_objects as go
+import pandas as pd
 
-"""
-# Welcome to Streamlit!
+# Function to create a Sankey diagram
+def create_sankey(source, target, value, label):
+    data = go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=label,
+        ),
+        link=dict(
+            source=source,  # indices correspond to labels
+            target=target,
+            value=value
+        )
+    )
+    
+    fig = go.Figure(data)
+    return fig
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+# Streamlit app
+st.title('Sankey Diagram Generator')
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+# User input for the Sankey diagram
+with st.form("sankey_data"):
+    input_csv = st.file_uploader("Upload a CSV file with source, target, value columns", type=['csv'])
+    submit_button = st.form_submit_button("Generate Diagram")
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
-
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
-
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
-
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
-
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+if submit_button and input_csv:
+    df = pd.read_csv(input_csv)
+    if {'source', 'target', 'value'}.issubset(df.columns):
+        unique_nodes = pd.concat([df['source'], df['target']]).unique()
+        label_dict = {name: idx for idx, name in enumerate(unique_nodes)}
+        source_indices = df['source'].map(label_dict)
+        target_indices = df['target'].map(label_dict)
+        
+        fig = create_sankey(
+            source=source_indices,
+            target=target_indices,
+            value=df['value'],
+            label=list(label_dict.keys())
+        )
+        st.plotly_chart(fig)
+    else:
+        st.error("CSV must contain source, target, and value columns.")
+else:
+    st.write("Upload a CSV file to see the Sankey diagram.")
